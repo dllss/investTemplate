@@ -15,6 +15,7 @@
 
 import sys
 import yaml
+import datetime
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from pathlib import Path
@@ -101,23 +102,135 @@ class DataValidator:
             if not check.get('checked', False):
                 self.errors.append(f"[METADATA] 未勾选确认: {check.get('check', '')}")
         
+        # 时效性校验（新增）
+        self._validate_data_freshness(meta)
+
         if not any(e for e in self.errors if e.startswith('[METADATA]')):
             print("   [PASS] 元数据校验通过")
     
+    def _validate_data_freshness(self, meta: Dict[str, Any]):
+        """校验数据时效性（强化）"""
+        freshness = meta.get('data_freshness_control', {})
+        report_type = meta.get('report_type', 'annual')
+        is_latest_full_year = meta.get('is_latest_full_year', False)
+
+        # 1. 检查是否使用年报
+        if report_type != 'annual':
+            self.warnings.append("[TIMING] 使用非年报数据（中报/季报），置信度应降级")
+            # 如果是中报，检查是否明确标注
+            if report_type == 'interim':
+                self.warnings.append("[TIMING] [WARNING] 使用中报数据，必须降级置信度为B级")
+
+        # 2. 检查是否是最新年报
+        if not is_latest_full_year:
+            self.warnings.append("[TIMING] 可能不是最新完整年度年报，请确认")
+
+        # 3. 检查数据时效
+        try:
+            current_date_str = freshness.get('current_date', '2026-03-22')
+            annual_report_date_str = meta.get('annual_report_date', '')
+
+            if annual_report_date_str:
+                current_date = datetime.datetime.strptime(current_date_str, '%Y-%m-%d').date()
+                annual_report_date = datetime.datetime.strptime(annual_report_date_str, '%Y-%m-%d').date()
+
+                # 计算数据时效天数
+                data_age_days = (current_date - annual_report_date).days
+
+                max_allowed = freshness.get('max_allowed_age_days', 365)
+                if data_age_days > max_allowed:
+                    self.errors.append(
+                        f"[TIMING] 数据过时: {data_age_days}天前发布（最大允许{max_allowed}天）"
+                    )
+                elif data_age_days > 180:  # 超过半年
+                    self.warnings.append(
+                        f"[TIMING] 数据较旧: {data_age_days}天前发布（建议使用最新数据）"
+                    )
+
+                # 检查是否使用上年数据（年报发布日期应在合理范围内）
+                annual_report_year = meta.get('annual_report_year', 0)
+                if annual_report_year > 0:
+                    current_year = current_date.year
+                    if annual_report_year < current_year - 1:
+                        self.errors.append(
+                            f"[TIMING] 年报年份过旧: {annual_report_year}年（当前{current_year}年）"
+                        )
+        except Exception as e:
+            self.warnings.append(f"[TIMING] 日期解析错误: {e}")
+
+        # 4. 检查核心数据一致性（报表期）
+        self._validate_report_period_consistency()
+
+    def _validate_report_period_consistency(self):
+        """校验所有核心数据的报表期是否一致"""
+        core = self.data.get('core_financial_data', {})
+
+        # 收集所有报表期
+        periods = []
+
+        cash_period = core.get('cash_and_bank_balances', {}).get('report_period')
+        if cash_period:
+            periods.append(("现金", cash_period))
+
+        # 检查负债数据报表期
+        debt = core.get('interest_bearing_debt', {})
+        for comp in ['short_term', 'long_term', 'bonds', 'lease_liabilities']:
+            comp_data = debt.get(comp, {})
+            period = comp_data.get('report_period')
+            if period:
+                periods.append((f"负债-{comp}", period))
+
+        # 检查利润数据报表期
+        for item in ['revenue', 'net_profit', 'net_profit_attributable']:
+            item_data = core.get(item, {})
+            period = item_data.get('report_period')
+            if period:
+                periods.append((item, period))
+
+        # 检查现金流数据报表期
+        for item in ['operating_cash_flow', 'capex']:
+            item_data = core.get(item, {})
+            period = item_data.get('report_period')
+            if period:
+                periods.append((item, period))
+
+        # 检查所有报表期是否一致
+        if periods:
+            unique_periods = set(period for _, period in periods)
+            if len(unique_periods) > 1:
+                self.errors.append(
+                    f"[TIMING] 核心数据报表期不一致: {unique_periods}"
+                )
+            else:
+                print(f"   [PASS] 核心数据报表期一致: {list(unique_periods)[0]}")
+
     def _validate_cash_data(self):
         """校验现金数据（S级强制）"""
-        print("\n[2] 现金数据校验（S级）")
-        
+        meta = self.data.get('analysis_metadata', {})
+        report_type = meta.get('report_type', 'annual')
+        level_label = "S级" if report_type == 'annual' else "B级"
+        print(f"\n[2] 现金数据校验（{level_label}）")
+
         cash = self.data.get('core_financial_data', {}).get('cash_and_bank_balances', {})
-        
-        # 检查置信度
-        if cash.get('confidence') != 'S':
-            self.errors.append("[CASH] 现金数据必须是S级（年报原文）")
-        
+
+        # 检查置信度（中报数据允许B级）
+        expected_confidence = 'S' if report_type == 'annual' else 'B'
+        if cash.get('confidence') != expected_confidence:
+            if report_type == 'annual':
+                self.errors.append("[CASH] 现金数据必须是S级（年报原文）")
+            else:
+                self.errors.append(f"[CASH] 中报/季报数据必须是B级（当前：{cash.get('confidence', '未标注')}）")
+
         # 检查来源
         source = cash.get('source', '')
-        if not source or 'annual_report' not in source:
-            self.errors.append("[CASH] 现金数据必须来自年报原文（source字段必须包含annual_report）")
+        if report_type == 'annual':
+            # 年报数据必须来自年报原文
+            if not source or 'annual_report' not in source:
+                self.errors.append("[CASH] 现金数据必须来自年报原文（source字段必须包含annual_report）")
+        else:
+            # 中报/季报数据必须来自相应报告
+            if not source or ('interim_report' not in source and 'quarter_report' not in source):
+                self.errors.append("[CASH] 非年报数据必须标注来源（source字段应包含interim_report或quarter_report）")
         
         # 检查页码
         if not cash.get('page_number') or cash.get('page_number') == 0:
@@ -137,6 +250,10 @@ class DataValidator:
         # 检查确认勾选
         if not cash.get('verification_checked', False):
             self.errors.append("[CASH] 必须勾选确认现金数据已核查")
+
+        # 检查报表期（新增）
+        if not cash.get('report_period'):
+            self.warnings.append("[CASH] 建议标注现金数据的报表期")
         
         if not any(e for e in self.errors if e.startswith('[CASH]')):
             print(f"   [PASS] 现金数据校验通过: {value:,.0f} {cash.get('unit', '')}")
@@ -173,6 +290,13 @@ class DataValidator:
                 f"{total_calculated}, 但填写为 {total_recorded}"
             )
         
+        # 检查报表期（新增）
+        components = ['short_term', 'long_term', 'bonds', 'lease_liabilities']
+        for comp in components:
+            comp_data = debt.get(comp, {})
+            if comp_data.get('value', 0) > 0 and not comp_data.get('report_period'):
+                self.warnings.append(f"[DEBT] {comp}有数值但未标注报表期")
+
         if not any(e for e in self.errors if e.startswith('[DEBT]')):
             print(f"   [PASS] 负债数据校验通过: 有息负债合计 {total_calculated:,.0f}")
     
@@ -190,20 +314,33 @@ class DataValidator:
         if not profit.get('value'):
             self.errors.append("[PROFIT] 归母净利润未填写")
         
+        # 检查报表期（新增）
+        for item in [revenue, profit]:
+            if item.get('value', 0) > 0 and not item.get('report_period'):
+                self.warnings.append(f"[PROFIT] {item.get('display_unit', '数据')}未标注报表期")
+
         if not any(e for e in self.errors if e.startswith('[PROFIT]')):
             print(f"   [PASS] 利润数据校验通过")
     
     def _validate_cashflow_data(self):
         """校验现金流数据（S级强制）"""
-        print("\n[5] 现金流数据校验（S级）")
-        
+        meta = self.data.get('analysis_metadata', {})
+        report_type = meta.get('report_type', 'annual')
+        level_label = "S级" if report_type == 'annual' else "B级"
+        print(f"\n[5] 现金流数据校验（{level_label}）")
+
         core = self.data.get('core_financial_data', {})
         ocf = core.get('operating_cash_flow', {})
         capex = core.get('capex', {})
-        
-        # 检查经营现金流
-        if ocf.get('confidence') != 'S':
-            self.errors.append("[CASHFLOW] 经营现金流必须是S级")
+
+        # 检查经营现金流置信度（中报数据允许B级）
+        expected_confidence = 'S' if report_type == 'annual' else 'B'
+        if ocf.get('confidence') != expected_confidence:
+            if report_type == 'annual':
+                self.errors.append("[CASHFLOW] 经营现金流必须是S级")
+            else:
+                self.errors.append(f"[CASHFLOW] 中报/季报经营现金流必须是B级（当前：{ocf.get('confidence', '未标注')}）")
+
         if not ocf.get('verification_checked', False):
             self.errors.append("[CASHFLOW] 必须勾选确认经营现金流已核查")
         
@@ -211,6 +348,11 @@ class DataValidator:
         if 'value' not in capex:
             self.errors.append("[CASHFLOW] 必须明确填写资本开支（即使为0）")
         
+        # 检查报表期（新增）
+        for item in [ocf, capex]:
+            if 'value' in item and not item.get('report_period'):
+                self.warnings.append(f"[CASHFLOW] {'经营现金流' if item is ocf else '资本开支'}未标注报表期")
+
         if not any(e for e in self.errors if e.startswith('[CASHFLOW]')):
             print(f"   [PASS] 现金流数据校验通过")
     
@@ -329,11 +471,22 @@ class DataValidator:
         for item in checklist:
             if not item.get('checked', False):
                 self.errors.append(f"[CHECKLIST] 未勾选: {item.get('item', '')}")
-            
+
             # 如果变动>30%，必须解释
             if item.get('id') == 'variance' and item.get('checked', False):
                 if not item.get('variance_explanation'):
                     self.warnings.append("[CHECKLIST] 数据变动>30%，建议填写解释")
+
+            # 数据时效性检查（新增）
+            if item.get('id') == 'data_freshness' and item.get('checked', False):
+                # 检查是否使用非年报数据
+                meta = self.data.get('analysis_metadata', {})
+                report_type = meta.get('report_type', 'annual')
+                if report_type != 'annual':
+                    if not item.get('freshness_explanation'):
+                        self.warnings.append(
+                            "[CHECKLIST] 使用非年报数据（中报/季报），建议填写解释原因"
+                        )
         
         if not any(e for e in self.errors if e.startswith('[CHECKLIST]')):
             print(f"   [PASS] 检查清单校验通过")

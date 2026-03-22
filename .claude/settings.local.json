@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(cd \"D:\\\\project\\\\investTemplate\" && cp config/data_validation_template.yaml config/validation_test.yaml)",
+      "Bash(cd \"D:\\\\project\\\\investTemplate\" && python scripts/validate_data.py config/validation_test.yaml)"
     ]
   }
 }
