@@ -1,0 +1,35 @@
+name: 同步追踪代码清单
+
+on:
+  push:
+    paths:
+      - "07-分析输出/*_投资分析报告.md"
+      - "scripts/sync_tracked_codes.py"
+      - ".github/workflows/sync_tracked_codes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-codes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: 生成追踪代码清单
+        run: python scripts/sync_tracked_codes.py
+
+      - name: 提交变更
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add 07-标的追踪/tracked_codes.txt
+          git commit -m "chore: 同步 tracked_codes 清单" || echo "No changes to commit"
+          git push

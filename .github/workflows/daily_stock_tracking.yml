@@ -8,16 +8,20 @@ on:
   # 允许手动触发
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   track-stocks:
     runs-on: ubuntu-latest
     
     steps:
     - name: 检出代码
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: 设置 Python 环境
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         
@@ -40,9 +44,9 @@ jobs:
         git push
         
     - name: 上传报告为Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: daily-report-${{ github.run_date }}
+        name: daily-report-${{ github.run_id }}
         path: 07-标的追踪/stock_data/daily_report.md
         
     - name: 创建Issue提醒（如有可买标的）
