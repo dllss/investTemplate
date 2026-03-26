@@ -1,0 +1,58 @@
+# 蒙牛乳业数据校验模板 (V5.5.11)
+# 股票代码: 02319.HK
+# 数据时点: 2024年报 (截至2024年12月31日)
+# 填表日期: 2026-03-26
+
+basic_info:
+  name: 蒙牛乳业
+  code: '02319'
+  market: HK
+  currency_financial: CNY  # 财报币种:人民币
+  currency_trading: HKD   # 交易币种:港元
+  currency_dividend: HKD  # 分红币种:港元
+  exchange_rate: 1.07     # 人民币兑港元汇率
+
+data_sources:
+  annual_report_year: 2024
+  annual_report_date: '2025-03-26'  # 年报发布日期
+  data_confidence: S级
+  
+core_financial_data:
+  # 资产负债表 (人民币亿元)
+  cash_and_deposits: 113.97  # 现金及银行结余
+  restricted_cash: 1.03      # 受限存款
+  short_term_borrowings: 77.22   # 短期借款
+  long_term_borrowings: 78.88    # 长期借款
+  total_interest_bearing_debt: 156.10  # 有息负债合计
+  total_equity: 393.15       # 总权益
+  
+  # 利润表 (人民币亿元)
+  revenue: 822.45            # 营业收入
+  gross_profit: 328.0        # 毛利
+  operating_profit: 15.45    # 经营利润/归母净利润
+  net_profit: 15.45          # 净利润
+  
+  # 现金流量表 (人民币亿元)
+  operating_cash_flow: 87.51     # 经营现金流
+  capex: 24.0                    # 资本开支(购置固定资产)
+  free_cash_flow: 63.51          # FCF = 87.51 - 24.0
+  
+  # 其他关键数据
+  total_shares: 38.79        # 总股本(亿股)
+  dividend_per_share_hkd: 0.52  # 每股分红(港元)
+  dividend_yield: 3.35       # 股息率(%)
+  
+# 计算指标
+calculated_metrics:
+  net_cash: -43.16           # 净现金 = 113.97 - 156.10 = -43.16(净负债)
+  market_cap_hkd: 601.25     # 市值(亿港元) = 15.5 * 38.79
+  market_cap_cny: 561.92     # 市值(亿人民币) = 601.25 / 1.07
+  
+  # FCF估值 (统一用人民币计算)
+  ev_cny: 605.08             # 企业价值 = 市值 + 净负债 = 561.92 + 43.16
+  fcf_yield: 11.31           # FCF收益率 = 63.51 / 561.92 = 11.31%
+  fcf_multiple_ev: 9.53      # EV/FCF = 605.08 / 63.51 = 9.53倍
+  fcf_multiple_market: 8.85  # 市值/FCF = 561.92 / 63.51 = 8.85倍
+  
+  pe_ratio: 36.37            # PE = 561.92 / 15.45 = 36.4倍
+  pb_ratio: 1.43             # PB = 561.92 / 393.15 = 1.43倍
