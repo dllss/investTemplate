@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: '投资分析模板',
-  description: '港股/A股个股投资分析框架 V5.5.12'
+  description: '港股/A股个股投资分析框架 V5.5.12',
   lang: 'zh-CN',
   
   // 忽略的死链（有些文件可能临时不存在）
