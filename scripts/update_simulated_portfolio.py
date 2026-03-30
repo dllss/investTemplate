@@ -205,15 +205,21 @@ def parse_report_pool() -> Dict[str, Dict]:
 
 
 def sync_positions_with_pool(state: Dict, pool: Dict[str, Dict]) -> Dict:
-    """V2.0: 同步持仓状态与报告池。"""
+    """V2.0: 同步持仓状态与报告池。
+    
+    重要原则：
+    1. 已有持仓的成本(avg_cost)和股数(shares)绝对不能被覆盖
+    2. 只更新配置信息(sell_trigger, lot_size等)
+    3. 新标的只添加配置，不自动开仓(shares=0)
+    """
     positions = state.get("positions", {})
     
     # 先标准化已有持仓
     positions, _ = normalize_state_positions(positions)
     
-    # 添加报告池中的新标的
     for ticker, info in pool.items():
         if ticker not in positions:
+            # 新标的：只添加配置，不自动开仓
             positions[ticker] = {
                 "name": info["name"],
                 "code": info["code"],
@@ -228,13 +234,16 @@ def sync_positions_with_pool(state: Dict, pool: Dict[str, Dict]) -> Dict:
                 "realized_pnl": 0.0,
             }
         else:
-            # 更新已有持仓的配置
+            # 已有持仓：只更新配置，绝不碰成本和股数
             p = positions[ticker]
             p["name"] = info["name"]
             p["code"] = info["code"]
             p["lot_size"] = info["lot_size"]
-            p["sell_trigger"] = info["sell_trigger"] or p.get("sell_trigger", 0.0)
-            p["target_buy"] = info["target_buy"] if info["target_buy"] else p.get("target_buy")
+            # sell_trigger 和 target_buy 只在没有时更新，不覆盖现有值
+            if info["sell_trigger"] and not p.get("sell_trigger"):
+                p["sell_trigger"] = info["sell_trigger"]
+            if info["target_buy"] and not p.get("target_buy"):
+                p["target_buy"] = info["target_buy"]
             p["max_weight"] = POSITION_CAP
     
     # 清理无持仓且不在报告池中的标的
@@ -286,17 +295,30 @@ def ensure_state() -> Dict:
         seed_baseline_files(state)
         return state
 
+    # 首次初始化：获取建仓日实际价格
     state = seed_state()
+    
+    # 获取初始持仓的实际市场价格
+    price_map: Dict[str, PricePoint] = {}
+    for ticker in state["positions"].keys():
+        code = str(state["positions"][ticker].get("code", ""))
+        pp = fetch_price_point_with_fallback(ticker, code)
+        if pp:
+            price_map[ticker] = pp
+    
+    # 使用实际价格初始化 baseline 文件
+    seed_baseline_files(state, price_map)
+    
+    # 保存更新后的 state（成本已更新为实际价格）
     STATE_FILE.write_text(
         json.dumps(state, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    seed_baseline_files(state)
     return state
 
 
-def seed_baseline_files(state: Dict) -> None:
-    """首次初始化时写入建仓日基线记录。"""
+def seed_baseline_files(state: Dict, price_map: Dict[str, PricePoint] | None = None) -> None:
+    """首次初始化时写入建仓日基线记录，使用实际市场价格而非建议价。"""
     initial_map = {}
     for row in INITIAL_POSITIONS:
         tk = normalize_hk_ticker(row["code"], row["ticker"])
@@ -306,18 +328,26 @@ def seed_baseline_files(state: Dict) -> None:
         records = []
         for tk, p in state["positions"].items():
             base = initial_map.get(tk, p)
-            if int(base.get("shares", 0)) > 0:
-                records.append({
-                    "date": START_DATE,
-                    "ticker": p["ticker"],
-                    "name": p["name"],
-                    "action": "INIT_BUY",
-                    "price": base["avg_cost"],
-                    "shares": base["shares"],
-                    "amount": round(base["shares"] * base["avg_cost"], 2),
-                    "cash_after": START_CASH,
-                    "reason": "初始建仓",
-                })
+            shares = int(base.get("shares", 0))
+            if shares <= 0:
+                continue
+            # 使用实际市场价格，如果没有则回退到建议价
+            pp = price_map.get(tk) if price_map else None
+            actual_price = pp.close if pp else base["avg_cost"]
+            records.append({
+                "date": START_DATE,
+                "ticker": p["ticker"],
+                "name": p["name"],
+                "action": "INIT_BUY",
+                "price": round(actual_price, 4),
+                "shares": shares,
+                "amount": round(shares * actual_price, 2),
+                "cash_after": START_CASH,
+                "reason": "初始建仓（实际成交价）",
+            })
+            # 更新 state 中的成本为实际价格
+            p["avg_cost"] = round(actual_price, 6)
+            p["initial_investment"] = round(shares * actual_price, 2)
         if records:
             pd.DataFrame(records).to_csv(TRADES_FILE, index=False, encoding="utf-8-sig")
 
@@ -331,27 +361,31 @@ def seed_baseline_files(state: Dict) -> None:
         shares = int(base.get("shares", 0))
         if shares == 0:
             continue
-        mv = shares * base["avg_cost"]
+        pp = price_map.get(tk) if price_map else None
+        actual_price = pp.close if pp else base["avg_cost"]
+        # 确保使用更新后的成本
+        avg_cost = p.get("avg_cost", actual_price)
+        mv = shares * avg_cost
         market_value += mv
         rows.append({
             "date": START_DATE,
             "ticker": p["ticker"],
             "name": p["name"],
             "code": p["code"],
-            "close": base["avg_cost"],
-            "prev_close": base["avg_cost"],
+            "close": round(actual_price, 4),
+            "prev_close": round(actual_price, 4),
             "change_pct": 0.0,
             "shares": shares,
-            "avg_cost": base["avg_cost"],
+            "avg_cost": round(avg_cost, 6),
             "action": "INIT",
             "action_shares": 0,
             "action_price": 0.0,
             "action_amount": 0.0,
-            "market_value": mv,
+            "market_value": round(mv, 2),
             "unrealized_pnl": 0.0,
             "cash_after": START_CASH,
-            "net_value": market_value + START_CASH,
-            "total_return_pct": ((market_value + START_CASH) / INITIAL_CAPITAL - 1) * 100,
+            "net_value": round(market_value + START_CASH, 2),
+            "total_return_pct": round(((market_value + START_CASH) / INITIAL_CAPITAL - 1) * 100, 4),
         })
     if rows:
         pd.DataFrame(rows).to_csv(DAILY_FILE, index=False, encoding="utf-8-sig")
@@ -498,10 +532,25 @@ def maybe_sell(position: Dict, price: float) -> Tuple[str, int, float, float, st
 
 
 def maybe_open(position: Dict, price: float, cash: float) -> Tuple[str, int, float, float, str]:
-    """V2.0: 开仓规则：到达买点且未持仓时开仓。"""
+    """V2.0: 开仓规则：到达买点且未持仓时开仓。
+    
+    ⚠️ 注意：此模拟组合已固定初始4只标的，不允许自动开仓新标的。
+    新标的只能通过手动修改 INITIAL_POSITIONS 和 simulation_state.json 来添加。
+    """
     shares = int(position.get("shares", 0))
     if shares > 0:
         return ("HOLD", 0, 0.0, 0.0, "已有持仓")
+
+    # 检查是否在初始持仓列表中
+    ticker = position.get("ticker", "")
+    code = position.get("code", "")
+    is_initial = any(
+        normalize_hk_ticker(p["code"], p.get("ticker")) == ticker 
+        for p in INITIAL_POSITIONS
+    )
+    
+    if not is_initial:
+        return ("WATCH", 0, 0.0, 0.0, "非初始标的，禁止自动开仓")
 
     target_buy = position.get("target_buy")
     if not target_buy or price > float(target_buy):
@@ -653,6 +702,9 @@ def build_dashboard_snapshot(price_map: Dict[str, PricePoint] | None = None) -> 
     total_market_value = 0.0
     for ticker, pos in state["positions"].items():
         shares = int(pos["shares"])
+        # 只显示有持仓的标的
+        if shares <= 0:
+            continue
         avg_cost = float(pos["avg_cost"])
         pp = (price_map or {}).get(ticker)
         close_price = float(pp.close) if pp else avg_cost

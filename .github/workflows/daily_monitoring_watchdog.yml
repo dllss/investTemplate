@@ -1,0 +1,52 @@
+name: 每日监控概览看门狗
+
+on:
+  schedule:
+    # 兜底巡检：主任务预期 16:30/16:40（北京时间）后，17:20/18:20 再检查并补跑
+    - cron: '20 9,10 * * 1-5'
+  workflow_dispatch:
+
+concurrency:
+  group: daily-monitoring-watchdog-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  check-and-recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 检查今日监控概览是否已更新
+      id: freshness
+      run: |
+        TODAY_CN=$(TZ=Asia/Shanghai date +'%Y-%m-%d')
+        OVERVIEW_FILE="07-分析输出/监控概览.md"
+        if [ -f "$OVERVIEW_FILE" ] && grep -q "更新时间.*${TODAY_CN}" "$OVERVIEW_FILE"; then
+          echo "stale=false" >> "$GITHUB_OUTPUT"
+          echo "[INFO] 今日（${TODAY_CN}）监控概览已更新，无需补跑。"
+        else
+          echo "stale=true" >> "$GITHUB_OUTPUT"
+          echo "[WARN] 今日（${TODAY_CN}）监控概览未更新，将触发补跑。"
+        fi
+
+    - name: 触发主工作流补跑
+      if: steps.freshness.outputs.stale == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'daily_monitoring.yml',
+            ref: 'main',
+            inputs: {
+              force_run: 'true'
+            }
+          });

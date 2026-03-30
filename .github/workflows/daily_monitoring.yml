@@ -4,11 +4,22 @@ on:
   schedule:
     # A股收盘 15:00（北京时间）后半小时 -> 15:30 = UTC 07:30
     # 港股收盘 16:00（香港时间）后半小时 -> 16:30 = UTC 08:30
-    # 统一按港股收盘后半小时执行（适配本项目港股优先）
+    # 双保险：主触发 + 10分钟后补触发（防止GitHub schedule偶发漏触发）
     - cron: '30 8 * * 1-5'
+    - cron: '40 8 * * 1-5'
   
   # 允许手动触发
   workflow_dispatch:
+    inputs:
+      force_run:
+        description: '是否强制执行（忽略今日已更新检查）'
+        required: false
+        default: 'false'
+
+concurrency:
+  # 同一分支同一工作流仅保留一个进行中实例，避免双cron并发重复执行
+  group: daily-monitoring-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -17,30 +28,49 @@ permissions:
 jobs:
   generate-overview:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
     - name: 检出代码
       uses: actions/checkout@v4
+
+    - name: 检查今日是否已更新
+      id: freshness
+      run: |
+        TODAY_CN=$(TZ=Asia/Shanghai date +'%Y-%m-%d')
+        OVERVIEW_FILE="07-分析输出/监控概览.md"
+        if [ -f "$OVERVIEW_FILE" ] && grep -q "更新时间.*${TODAY_CN}" "$OVERVIEW_FILE"; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "[INFO] 今日（${TODAY_CN}）监控概览已存在，跳过重复执行。"
+        else
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "[INFO] 今日（${TODAY_CN}）尚未生成，继续执行。"
+        fi
       
     - name: 设置 Python 环境
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         
     - name: 安装依赖
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       run: |
         python -m pip install --upgrade pip
         pip install akshare yfinance pandas
 
     - name: 更新模拟投资组合（自动决策）
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       run: |
         python scripts/update_simulated_portfolio.py
         
     - name: 生成监控概览
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       run: |
         python scripts/generate_monitoring_overview.py
         
     - name: 提交更新
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
@@ -50,6 +80,7 @@ jobs:
         git push
         
     - name: 创建Issue提醒（如有接近买点的标的）
+      if: steps.freshness.outputs.skip != 'true' || github.event.inputs.force_run == 'true'
       uses: actions/github-script@v6
       with:
         script: |
