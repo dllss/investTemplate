@@ -155,7 +155,7 @@ def backtest_vix_dca(df, dates, monthly_budget=None):
             'vix': vix_value,
             'multiplier': mult,
             'label': label,
-            'planned_investment': planned_amount,
+            'planned_investment': monthly_budget if monthly_budget else planned_amount,
             'actual_investment': actual_amount,
             'cash_balance': cash_balance,
             'shares': buy_shares,
@@ -203,7 +203,7 @@ def backtest_plain_dca_with_cash(df, dates, monthly_budget):
         records.append({
             'date': d,
             'price': price,
-            'planned_investment': base_amount,
+            'planned_investment': monthly_budget,  # 修正：记录每月预算，不是基础金额
             'actual_investment': actual_amount,
             'cash_balance': cash_balance,
             'shares': buy_shares,
@@ -226,12 +226,12 @@ def backtest_lump_sum(df, dates, total_cash):
     cash_invested = total_cash
     
     records = []
-    for d in dates:
+    for i, d in enumerate(dates):
         price = float(df.loc[d, 'QQQ'])
         records.append({
             'date': d,
             'price': price,
-            'planned_investment': 0,
+            'planned_investment': total_cash if i == 0 else 0,  # 只在首月记录总预算，避免重复计算
             'actual_investment': 0,
             'cash_balance': 0,
             'shares': 0,
