@@ -38,6 +38,9 @@ __pycache__/
 *.csv
 *.xlsx
 
+# 但模拟组合的交易记录必须提交（作为真相源）
+!08-决策追踪/simulation_trades.csv
+
 # 临时文件
 tmp/
 temp/
