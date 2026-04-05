@@ -14,7 +14,7 @@ export default defineConfig({
       { text: '首页', link: '/' },
       { text: '🎯 模拟持仓', link: '/模拟持仓/持仓' },
       { text: '分析模板', link: '/个股分析标准模版' },
-      { text: '版本日志', link: '/CHANGELOG' }
+      { text: '版本日志', link: '/docs/CHANGELOG' }
     ],
     
     // 侧边栏
@@ -40,57 +40,31 @@ export default defineConfig({
           { text: '🎯 模拟持仓（实时）', link: '/模拟持仓/持仓' },
           { text: '项目介绍', link: '/README' },
           { text: '项目结构说明', link: '/项目结构说明' },
-          { text: '更新日志', link: '/CHANGELOG' }
+          { text: '更新日志', link: '/docs/CHANGELOG' }
         ]
       },
       {
-        text: '🔍 01-筛选框架',
+        text: '📋 分析模板',
         collapsed: false,
         items: [
-          { text: '双市场筛选标准', link: '/01-筛选框架/01-1-双市场筛选标准' },
-          { text: '行业筛选白名单', link: '/01-筛选框架/01-行业筛选白名单' },
-          { text: '金龟筛选框架', link: '/01-筛选框架/01-金龟筛选框架' }
+          { text: '01-数据核查与地缘政治排除', link: '/template/01-数据核查与地缘政治排除' },
+          { text: '02-央国企筛选与流派识别', link: '/template/02-央国企筛选与流派识别' },
+          { text: '03-深度负债与周期分析', link: '/template/03-深度负债与周期分析' },
+          { text: '04-动态现金与周期拐点', link: '/template/04-动态现金与周期拐点' },
+          { text: '05-极端情景测试', link: '/template/05-极端情景测试' },
+          { text: '06-估值与安全边际', link: '/template/06-估值与安全边际' },
+          { text: '07-决策流程与持仓管理', link: '/template/07-决策流程与持仓管理' },
+          { text: '08-高级烟蒂股分析框架', link: '/template/08-高级烟蒂股分析框架' },
+          { text: '09-估值修复框架', link: '/template/09-估值修复框架' },
+          { text: '10-特殊轻资产模式', link: '/template/10-特殊轻资产模式' }
         ]
       },
       {
-        text: '🧹 02-数据清洗',
+        text: '📚 项目文档',
         collapsed: true,
         items: [
-          { text: '强制性核查清单', link: '/02-数据清洗/02-1-强制性核查清单' },
-          { text: '核心数据清洗', link: '/02-数据清洗/02-核心数据清洗' }
-        ]
-      },
-      {
-        text: '💰 03-估值模型',
-        collapsed: true,
-        items: [
-          { text: 'V2-高股息协议', link: '/03-估值模型/03-V2-高股息协议' },
-          { text: 'V3-十倍估值法', link: '/03-估值模型/04-V3-十倍估值法' },
-          { text: 'V3.5-FCEV估值法', link: '/03-估值模型/05-V35-FCEV估值法' }
-        ]
-      },
-      {
-        text: '🎯 04-决策分析',
-        collapsed: true,
-        items: [
-          { text: '06-类比延伸', link: '/04-决策分析/06-类比延伸' },
-          { text: '07-最终决策综述', link: '/04-决策分析/07-最终决策综述' }
-        ]
-      },
-      {
-        text: '📊 05-策略框架',
-        collapsed: true,
-        items: [
-          { text: '08-烟蒂股策略框架', link: '/05-策略框架/08-烟蒂股策略框架' },
-          { text: 'VIX-纳斯达克100定投策略', link: '/05-策略框架/VIX-纳斯达克100定投策略/README' },
-          { text: 'VIX策略回测报告', link: '/05-策略框架/VIX-纳斯达克100定投策略/backtest_report' }
-        ]
-      },
-      {
-        text: '📚 06-附录案例',
-        collapsed: true,
-        items: [
-          { text: '09-附录', link: '/06-附录案例/09-附录' }
+          { text: '更新日志', link: '/docs/CHANGELOG' },
+          { text: '项目结构说明', link: '/docs/项目结构说明' }
         ]
       },
       {
