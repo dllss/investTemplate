@@ -1,7 +1,7 @@
 {
   "strategy": "VIX定投策略_纳指100",
   "version": "V1.0",
-  "last_update": "2026-05-21",
+  "last_update": "2026-05-22",
   "account": {
     "initial_capital": 6006.0,
     "cash": 93994.0,
@@ -22,14 +22,14 @@
     "total_pnl": 1291.94,
     "total_return_pct": 21.51,
     "daily_pnl": 0.0,
-    "vix": 17.54,
-    "date": "2026-05-21"
+    "vix": 17.08,
+    "date": "2026-05-22"
   },
   "schedule": {
     "frequency": "每两周周二",
     "last_trade_date": "2026-04-07",
     "next_trade_date": "2026-04-21",
-    "days_until_next": -30
+    "days_until_next": -31
   },
   "recent_trades": [
     {
@@ -52,6 +52,12 @@
     }
   ],
   "daily_snapshots": [
+    {
+      "date": "2026-05-22",
+      "price": 2.371,
+      "pnl": 1291.94,
+      "daily_pnl": 0.0
+    },
     {
       "date": "2026-05-21",
       "price": 2.371,
@@ -225,12 +231,6 @@
       "price": 2.026,
       "pnl": 229.63,
       "daily_pnl": 227.37
-    },
-    {
-      "date": "2026-04-07",
-      "price": 1.952,
-      "pnl": 2.26,
-      "daily_pnl": 5.03
     }
   ]
 }
