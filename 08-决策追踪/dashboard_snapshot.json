@@ -2,16 +2,16 @@
   "meta": {
     "template_version": "V5.5.12",
     "engine_version": "V3.1",
-    "generated_at": "2026-05-27 11:52:25",
-    "latest_trade_date": "2026-05-27"
+    "generated_at": "2026-05-28 11:55:02",
+    "latest_trade_date": "2026-05-28"
   },
   "portfolio": {
     "initial_capital": 500000.0,
-    "cash": 109160.0,
-    "market_value": 366530.0,
-    "net_value": 475690.0,
-    "total_return_pct": -4.862,
-    "position_ratio_pct": 73.306,
+    "cash": 104540.0,
+    "market_value": 365240.0,
+    "net_value": 469780.0,
+    "total_return_pct": -6.044,
+    "position_ratio_pct": 73.048,
     "positions": [
       {
         "name": "天津发展",
@@ -19,12 +19,12 @@
         "ticker": "0882.HK",
         "shares": 40000,
         "avg_cost": 2.55,
-        "close": 2.23,
-        "change_pct": -2.193,
-        "market_value": 89200.0,
-        "unrealized": -12800.0,
+        "close": 2.19,
+        "change_pct": -1.7937,
+        "market_value": 87600.0,
+        "unrealized": -14400.0,
         "sell_trigger": 4.5,
-        "weight_pct": 18.7517,
+        "weight_pct": 18.647,
         "status": "实时"
       },
       {
@@ -33,26 +33,26 @@
         "ticker": "1522.HK",
         "shares": 342000,
         "avg_cost": 0.295,
-        "close": 0.29,
-        "change_pct": 0.0,
-        "market_value": 99180.0,
-        "unrealized": -1710.0,
+        "close": 0.285,
+        "change_pct": -1.7241,
+        "market_value": 97470.0,
+        "unrealized": -3420.0,
         "sell_trigger": 0.6,
-        "weight_pct": 20.8497,
+        "weight_pct": 20.748,
         "status": "实时"
       },
       {
         "name": "华润医药",
         "code": "03320",
         "ticker": "3320.HK",
-        "shares": 15000,
-        "avg_cost": 5.33,
-        "close": 4.71,
-        "change_pct": -1.4644,
-        "market_value": 70650.0,
-        "unrealized": -9300.0,
+        "shares": 16000,
+        "avg_cost": 5.285625,
+        "close": 4.62,
+        "change_pct": -1.9108,
+        "market_value": 73920.0,
+        "unrealized": -10650.0,
         "sell_trigger": 9.0,
-        "weight_pct": 14.8521,
+        "weight_pct": 15.735,
         "status": "实时"
       },
       {
@@ -61,12 +61,12 @@
         "ticker": "87001.HK",
         "shares": 250000,
         "avg_cost": 0.432,
-        "close": 0.43,
-        "change_pct": -1.1494,
-        "market_value": 107500.0,
-        "unrealized": -500.0,
+        "close": 0.425,
+        "change_pct": -1.1628,
+        "market_value": 106250.0,
+        "unrealized": -1750.0,
         "sell_trigger": 1.0,
-        "weight_pct": 22.5988,
+        "weight_pct": 22.617,
         "status": "实时"
       }
     ]
